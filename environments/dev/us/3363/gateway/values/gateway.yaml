@@ -1,0 +1,10 @@
+# Gateway values for asset 3363
+# Cluster targeting is managed by cluster.config.yaml - do not hardcode here
+alb:
+  targetconfig: {}
+  lbConfig: {}
+  labels: {}
+apisix:
+  gateway: {}
+  referenceGrant: {}
+  labels: {}

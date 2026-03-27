@@ -1,0 +1,115 @@
+{{/*
+  ApplicationSet for sk8s-gateway deployment.
+  
+  Strategy: One Application per (assetId × cluster) combination.
+  - Iterates over clusterConfig (stateless + stateful MT groups)
+  - Skips MT groups with status: full
+  - Skips clusters with status != active
+  - Skips asset IDs with hasGateway: false
+  - Each Application uses multi-source:
+    Source 1: sk8s-gateway Helm chart (version from per-asset chart.yaml in values)
+    Source 2: Git repo with value files from {assetId}/gateway/values/
+*/}}
+
+{{- $root := . -}}
+{{- $env := .Values.environment -}}
+{{- $region := .Values.region -}}
+
+{{/* Build a flat list of (assetId, cluster, mtName, clusterType) from active MT groups */}}
+{{- $entries := list -}}
+{{- range $clusterType, $mtGroups := .Values.clusterConfig -}}
+  {{- range $mtGroup := $mtGroups -}}
+    {{- if ne $mtGroup.status "full" -}}
+      {{- range $cluster := $mtGroup.clusters -}}
+        {{- if eq $cluster.status "active" -}}
+          {{- range $asset := $mtGroup.assetIds -}}
+            {{- if $asset.hasGateway -}}
+              {{- $entry := dict "assetId" $asset.id "clusterName" $cluster.name "clusterRegion" $cluster.region "mtName" $mtGroup.name "clusterType" $clusterType -}}
+              {{- $entries = append $entries $entry -}}
+            {{- end -}}
+          {{- end -}}
+        {{- end -}}
+      {{- end -}}
+    {{- end -}}
+  {{- end -}}
+{{- end -}}
+
+{{- if $entries }}
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: sk8s-gateway-appset
+  namespace: {{ .Values.argocd.namespace | default "argocd" }}
+  labels:
+    {{- include "sk8s-gateway-appset.labels" . | nindent 4 }}
+spec:
+  goTemplate: true
+  goTemplateOptions: ["missingkey=error"]
+  generators:
+    - list:
+        elements:
+          {{- range $entry := $entries }}
+          - assetId: "{{ $entry.assetId }}"
+            clusterName: "{{ $entry.clusterName }}"
+            clusterRegion: "{{ $entry.clusterRegion }}"
+            mtName: "{{ $entry.mtName }}"
+            clusterType: "{{ $entry.clusterType }}"
+          {{- end }}
+  template:
+    metadata:
+      name: 'sk8s-gw-{{`{{ .clusterType }}`}}-{{`{{ .assetId }}`}}-{{`{{ .clusterName }}`}}'
+      namespace: {{ .Values.argocd.namespace | default "argocd" }}
+      labels:
+        {{- include "sk8s-gateway-appset.labels" . | nindent 8 }}
+        app.kubernetes.io/component: gateway
+        sk8s.io/asset-id: '{{`{{ .assetId }}`}}'
+        sk8s.io/cluster-type: '{{`{{ .clusterType }}`}}'
+        sk8s.io/mt-cluster: '{{`{{ .mtName }}`}}'
+      annotations:
+        argocd.argoproj.io/manifest-generate-paths: >-
+          environments/{{ $env }}/{{ $region }}/{{`{{ .assetId }}`}}/gateway/values
+    spec:
+      project: {{ .Values.argocd.project }}
+      sources:
+        # Source 1: Git repo reference for value files
+        - repoURL: {{ .Values.gitRepo.url }}
+          targetRevision: {{ .Values.gitRepo.revision }}
+          ref: values
+        # Source 2: sk8s-gateway chart with value files
+        - repoURL: https://jfrog.com/lnlp-sk8s
+          chart: sk8s-gateway
+          targetRevision: "1.0.0"
+          helm:
+            valueFiles:
+              # Global defaults first
+              - $values/environments/{{ $env }}/{{ $region }}/default-gateway.yaml
+              # All asset-specific gateway values (merged in order)
+              - $values/environments/{{ $env }}/{{ $region }}/{{`{{ .assetId }}`}}/gateway/values/gateway.yaml
+            parameters:
+              # Inject cluster-specific context
+              - name: clusterName
+                value: '{{`{{ .clusterName }}`}}'
+              - name: clusterRegion
+                value: '{{`{{ .clusterRegion }}`}}'
+              - name: multiTenantCluster
+                value: '{{`{{ .mtName }}`}}'
+              - name: clusterType
+                value: '{{`{{ .clusterType }}`}}'
+              - name: assetId
+                value: '{{`{{ .assetId }}`}}'
+      destination:
+        name: '{{`{{ .clusterName }}`}}'
+        namespace: {{ .Values.destination.namespace | default "apisix" }}
+      syncPolicy:
+        {{- with .Values.syncPolicy.automated }}
+        automated:
+          prune: {{ .prune }}
+          selfHeal: {{ .selfHeal }}
+        {{- end }}
+        syncOptions:
+          {{- toYaml .Values.syncPolicy.syncOptions | nindent 10 }}
+        {{- with .Values.syncPolicy.retry }}
+        retry:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
+{{- end }}

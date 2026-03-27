@@ -1,0 +1,4 @@
+# sk8s-gateway chart source for asset 4368
+repoURL: https://jfrog.com/lnlp-sk8s
+chart: sk8s-gateway
+targetRevision: "1.0.0"

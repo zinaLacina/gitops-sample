@@ -1,0 +1,6 @@
+apiVersion: v2
+name: sk8s-gateway-appset
+description: ArgoCD ApplicationSet for deploying sk8s-gateway across multi-tenant clusters
+type: application
+version: 0.1.0
+appVersion: "1.0.0"

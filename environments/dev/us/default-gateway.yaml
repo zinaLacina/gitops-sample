@@ -1,0 +1,12 @@
+# For argocd appset
+# -cluster.config.yaml
+# For the application
+labels: {}
+alb: 
+  targetconfig: {}
+  lbConfig: {}
+  labels: {}
+apisix:
+  gateway: {}
+  referenceGrant: {}
+  labels: {}

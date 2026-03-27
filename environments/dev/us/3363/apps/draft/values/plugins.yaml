@@ -1,0 +1,26 @@
+#Plugins config for the draft application
+# rate limiting ( elasticache to have sharable state amount all the dataplane)
+# apikey(ekys are store in aws parameter store)
+
+plugins:
+  authentications:
+  - name: key-auth
+    config: {}
+  # not needed for the frist demo
+  # wam config
+  - name: openid-connect
+    config: {}
+
+    # draft.abe.us.dev.sk8s.aws.lexis.com (global)
+    #   draft.abe.use1.dev.sk8s.aws.lexis.com(us-east-1)
+    #   draft.abe.use2.dev.sk8s.aws.lexis.com(us-east-2)
+
+    #   ddc.sk8s.aws.lexis.com
+
+    #   cdc.sk8s.aws.lexis.com
+
+    #   sdc.sk8s.aws.lexis.com
+
+    #   pdc.sk8s.aws.lexis.com
+
+

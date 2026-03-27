@@ -1,0 +1,58 @@
+# Multi-tenant cluster configuration
+# status: active = accepting deployments, full = no new deployments
+# Constraint: An asset ID can appear in multiple MT groups,
+#             but only ONE can be active at a time.
+
+stateless:
+  - name: mt-0
+    status: active
+    clusters:
+      - name: 4054-sk8s-use1-ops-dev
+        region: us-east-1
+        status: active
+      - name: 4054-sk8s-use2-ops-dev
+        region: us-east-2
+        status: active
+    assetIds:
+      - "4054"
+
+  - name: stl-10
+    status: active
+    clusters:
+      - name: 4054-sk8s-use1-mt-dev
+        region: us-east-1
+        status: active
+      - name: 4054-sk8s-use2-mt-dev
+        region: us-east-2
+        status: active
+    assetIds:
+      - "3363"
+      - "4368"
+      - "7135"
+
+stateful:
+  - name: mt-0
+    status: active
+    clusters:
+      - name: 4054-sk8s-use1-ops-dev
+        region: us-east-1
+        status: active
+      - name: 4054-sk8s-use2-ops-dev
+        region: us-east-2
+        status: active
+    assetIds:
+      - "4054"
+
+  - name: stf-10
+    status: full
+    clusters:
+      - name: 4054-sk8s-use1-mt-dev
+        region: us-east-1
+        status: active
+      - name: 4054-sk8s-use2-mt-dev
+        region: us-east-2
+        status: active
+    assetIds:
+      - "3363"
+      - "4368"
+      - "7135"

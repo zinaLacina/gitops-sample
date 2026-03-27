@@ -1,0 +1,145 @@
+// Jenkinsfile for deploying sk8s-gateway-appset Helm chart
+// Deploys the ArgoCD ApplicationSet to the 4054-sk8s-ops-prod cluster
+// Credentials are sourced from environment variables
+
+pipeline {
+    agent any
+
+    parameters {
+        choice(
+            name: 'ENVIRONMENT',
+            choices: ['dev', 'staging', 'prod'],
+            description: 'Target environment'
+        )
+        choice(
+            name: 'REGION',
+            choices: ['us', 'eu', 'uk', 'apac', 'hk'],
+            description: 'Target region'
+        )
+        string(
+            name: 'CHART_VERSION',
+            defaultValue: '',
+            description: 'AppSet chart version override (leave empty for latest)'
+        )
+        booleanParam(
+            name: 'DRY_RUN',
+            defaultValue: false,
+            description: 'Run helm template only (no deploy)'
+        )
+    }
+
+    environment {
+        ARGOCD_CLUSTER    = '4054-sk8s-ops-prod'
+        RELEASE_NAME      = 'sk8s-gateway-appset'
+        CHART_PATH        = 'charts/sk8s-gateway-appset'
+        ARGOCD_NAMESPACE  = 'argocd'
+        // Credentials from env variables (KUBECONFIG, HELM_REGISTRY_*, etc.)
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                checkout scm
+            }
+        }
+
+        stage('Validate') {
+            steps {
+                script {
+                    // Validate cluster config YAML
+                    sh """
+                        echo "==> Validating cluster config..."
+                        cat environments/${params.ENVIRONMENT}/${params.REGION}/cluster.config.yaml
+                    """
+
+                    // Lint the Helm chart
+                    sh """
+                        echo "==> Linting Helm chart..."
+                        helm lint ${CHART_PATH} \
+                            --values ${CHART_PATH}/values.yaml \
+                            --set environment=${params.ENVIRONMENT} \
+                            --set region=${params.REGION}
+                    """
+                }
+            }
+        }
+
+        stage('Dry Run') {
+            when {
+                expression { return params.DRY_RUN }
+            }
+            steps {
+                script {
+                    sh """
+                        echo "==> Helm template dry run..."
+                        helm template ${RELEASE_NAME} ${CHART_PATH} \
+                            --values ${CHART_PATH}/values.yaml \
+                            --set environment=${params.ENVIRONMENT} \
+                            --set region=${params.REGION} \
+                            --namespace ${ARGOCD_NAMESPACE}
+                    """
+                }
+            }
+        }
+
+        stage('Deploy') {
+            when {
+                expression { return !params.DRY_RUN }
+            }
+            steps {
+                script {
+                    def versionFlag = params.CHART_VERSION ? "--version ${params.CHART_VERSION}" : ""
+
+                    sh """
+                        echo "==> Deploying to ${ARGOCD_CLUSTER}..."
+                        helm upgrade --install ${RELEASE_NAME} ${CHART_PATH} \
+                            --values ${CHART_PATH}/values.yaml \
+                            --set environment=${params.ENVIRONMENT} \
+                            --set region=${params.REGION} \
+                            --namespace ${ARGOCD_NAMESPACE} \
+                            --kube-context ${ARGOCD_CLUSTER} \
+                            ${versionFlag} \
+                            --wait \
+                            --timeout 5m
+                    """
+                }
+            }
+        }
+
+        stage('Verify') {
+            when {
+                expression { return !params.DRY_RUN }
+            }
+            steps {
+                script {
+                    sh """
+                        echo "==> Verifying ApplicationSet..."
+                        kubectl get applicationset sk8s-gateway-appset \
+                            --context ${ARGOCD_CLUSTER} \
+                            -n ${ARGOCD_NAMESPACE} \
+                            -o yaml
+                        
+                        echo "==> Listing generated Applications..."
+                        kubectl get applications \
+                            --context ${ARGOCD_CLUSTER} \
+                            -n ${ARGOCD_NAMESPACE} \
+                            -l app.kubernetes.io/part-of=sk8s-platform \
+                            -o wide
+                    """
+                }
+            }
+        }
+    }
+
+    post {
+        success {
+            echo "sk8s-gateway-appset deployed successfully to ${ARGOCD_CLUSTER} for ${params.ENVIRONMENT}/${params.REGION}"
+        }
+        failure {
+            echo "Deployment failed! Check the logs above for details."
+        }
+        always {
+            cleanWs()
+        }
+    }
+}

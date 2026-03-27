@@ -1,0 +1,10 @@
+apiVersion: v2
+appVersion: "1.0"
+description: A Helm chart for Kubernetes
+name: us-rag-agentic-ask-use1-dev1
+version: 0.1.0
+dependencies:
+  - name: stateless-services-rag
+    version: 0.2.5
+    repository: https://lnlpuseast.jfrog.io/artifactory/api/helm/helm-virtual/
+    alias: services

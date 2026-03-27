@@ -1,0 +1,102 @@
+# ArgoCD ApplicationSet values for sk8s-gateway deployment
+argocd:
+  project: core-components
+  namespace: argocd
+
+# Destination namespace for all gateway deployments
+destination:
+  namespace: apisix
+
+# Sync policy configuration
+syncPolicy:
+  automated:
+    prune: true
+    selfHeal: true
+  syncOptions:
+    - CreateNamespace=true
+    - ServerSideApply=true
+  retry:
+    limit: 5
+    backoff:
+      duration: 5s
+      factor: 2
+      maxDuration: 3m
+
+# Git repository for value files
+gitRepo:
+  url: https://github.com/ln-internal/sk8s-platform-gitops
+  revision: HEAD
+
+# Environment and region to locate config under environments/{env}/{region}/
+environment: dev
+region: us
+
+# Cluster configuration
+# This is populated from environments/{env}/{region}/cluster.config.yaml
+# Each MT group contains: name, status, clusters[], assetIds[]
+clusterConfig:
+  stateless:
+    - name: mt-0
+      status: active
+      clusters:
+        - name: 4054-sk8s-use1-ops-dev
+          region: us-east-1
+          status: active
+        - name: 4054-sk8s-use2-ops-dev
+          region: us-east-2
+          status: active
+      assetIds:
+        - id: "4054"
+          hasGateway: true
+
+    - name: stl-10
+      status: active
+      clusters:
+        - name: 4054-sk8s-use1-mt-dev
+          region: us-east-1
+          status: active
+        - name: 4054-sk8s-use2-mt-dev
+          region: us-east-2
+          status: active
+      assetIds:
+        - id: "3363"
+          hasGateway: true
+        - id: "4368"
+          hasGateway: true
+        - id: "7135"
+          hasGateway: false   # No gateway folder for this asset
+
+  stateful:
+    - name: mt-0
+      status: active
+      clusters:
+        - name: 4054-sk8s-use1-ops-dev
+          region: us-east-1
+          status: active
+        - name: 4054-sk8s-use2-ops-dev
+          region: us-east-2
+          status: active
+      assetIds:
+        - id: "4054"
+          hasGateway: true
+
+    - name: stf-10
+      status: full
+      clusters:
+        - name: 4054-sk8s-use1-mt-dev
+          region: us-east-1
+          status: active
+        - name: 4054-sk8s-use2-mt-dev
+          region: us-east-2
+          status: active
+      assetIds:
+        - id: "3363"
+          hasGateway: true
+        - id: "4368"
+          hasGateway: true
+        - id: "7135"
+          hasGateway: false
+
+# Per-asset gateway chart overrides (optional)
+# If not specified here, the chart.yaml in each asset's gateway/ folder is used
+assetChartOverrides: {}

@@ -1,0 +1,27 @@
+#Plugins config for the draft application
+# rate limiting ( elasticache to have sharable state amount all the dataplane)
+# apikey(ekys are store in aws parameter store)
+
+plugins:
+  transformations:
+  - name: response-rewrite
+    config: {}
+  - name: proxy-rewrite
+    config: {}
+  trafics: 
+  - name: request-id
+    config: {}
+  - name: limit-req
+    config: {}
+  - name: api-breaker
+    config: {}
+  authentications:
+  - name: key-auth
+    config: {}
+  observabilities:
+  - name: prometheus
+    config: {}
+  - name: node-status
+    config: {}
+  - name: opentelemetry
+    config: {}

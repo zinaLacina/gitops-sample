@@ -1,0 +1,4 @@
+mt-cluster: s8s-mt-1
+rollout: {}
+service: {}
+gateway: {}
